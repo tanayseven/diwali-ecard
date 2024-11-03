@@ -5,18 +5,32 @@ const k = kaplay({
 	background: [0, 0, 0],
 })
 
+type States = "ready" | "initial" | "input-from" | "input-to"
+
 const queryParams = new URLSearchParams(window.location.search)
 
-let decodedName: string;
-try {
-	decodedName = atob(queryParams.get("name"))
-}
-catch (e) {
-	decodedName = ""
-}
+const fetchNameFromUrl = (): string => {
+	try {
+		const rawName = queryParams.get("name")
+		if (rawName) {
+			return  atob(queryParams.get("name"))
+		}
+	} catch (e) {
+		return  ""
+	}
+	return ""
+};
+
+let decodedName: string = fetchNameFromUrl();
 
 
-let name = decodedName || "<Enter name>"
+let state: States = "initial"
+
+if (decodedName) {
+	state = "ready"
+}
+
+let name = decodedName || "!"
 
 let greeting: TextComp
 let greetingObject: GameObj
@@ -32,7 +46,71 @@ const newGreeting = (name: string) => text(`Happy Diwali ${toTitleCase(name)}`, 
 	}),
 })
 
-greeting = newGreeting(name)
+if (state === "ready") {
+	greeting = newGreeting(name)
+}
+
+let inputBox: GameObj
+let inputPrompt: string = ""
+let inputText: string = ""
+let inputTextObj: GameObj
+
+const getCursor = () => cursorShow ? "|" : " "
+
+const updateInputText = () => {
+	if (inputTextObj) {
+		k.destroy(inputTextObj)
+	}
+	if (inputBox) {
+		k.destroy(inputBox)
+	}
+	inputBox = add([
+		rect(width() - 200, 120, { radius: 32 }),
+		anchor("center"),
+		pos(center().x, height() / 2),
+		outline(4),
+	]);
+	inputTextObj = k.add([
+		text(`${inputPrompt}: ${inputText} ${getCursor()}`, {
+			font: "monospace",
+			size: 24,
+			width: inputBox.width,
+			align: "center",
+		}),
+		k.anchor("center"),
+		k.pos(inputBox.pos),
+		k.color(0, 0, 0),
+	]);
+}
+
+let cursorShow = true
+setInterval(() => {
+	cursorShow = !cursorShow
+	updateInputText()
+}, 500)
+
+if (state === "initial") {
+	inputPrompt = "Enter your name"
+	state = "input-from"
+	updateInputText()
+}
+
+if (state === "input-from") {
+	inputPrompt = "Enter your name"
+	updateInputText()
+}
+
+const acceptInputTo = () => {
+	state = "input-to"
+	inputText = ""
+	inputPrompt = "Enter recipient's name"
+	updateInputText()
+}
+
+if (state === "input-to") {
+	inputPrompt = "Enter recipient's name"
+	updateInputText()
+}
 
 function toTitleCase(str: string): string {
 	return str.replace(
@@ -53,14 +131,31 @@ const updateGreeting = () => {
 	window.history.replaceState(null, null, `?name=${btoa(name)}`);
 }
 
+let isShiftPressed = false
+
+onKeyDown("shift", () => {
+	isShiftPressed = true
+})
+
+onKeyRelease("shift", () => {
+	isShiftPressed = false
+})
+
 onKeyPressRepeat("backspace", () => {
-	name = name.substring(0, name.length - 1);
-	updateGreeting()
+	inputText = inputText.substring(0, inputText.length - 1);
+	updateInputText()
 });
 
-onCharInput((ch) => {
-	name += ch;
-	updateGreeting()
+onKeyPress("enter", () => {
+	if (state === "input-to") {
+		acceptInputTo()
+	}
+})
+
+onCharInput((ch: string) => {
+	ch = isShiftPressed ? ch.toUpperCase() : ch.toLowerCase()
+	inputText += ch;
+	updateInputText()
 });
 
 k.loadSprite("diya-1", "sprites/diya-1.png", {
