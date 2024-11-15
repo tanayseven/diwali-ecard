@@ -1,11 +1,23 @@
-import kaplay, {GameObj, TextComp} from "kaplay"
+import {GameObj, TextComp} from "kaplay"
 import "kaplay/global"
+import {k, States} from "./game";
+import {toTitleCase} from "./stringUtils";
 
-const k = kaplay({
-	background: [0, 0, 0],
-})
+interface GameState {
+	nextScreen: () => GameState
+}
 
-type States = "ready" | "initial" | "input-from" | "input-to"
+class InitialScreen implements GameState {
+	state: States
+
+	constructor() {
+		this.state = "initial"
+	}
+
+	nextScreen(): GameState {
+		// TODO return the next screen
+	}
+}
 
 const queryParams = new URLSearchParams(window.location.search)
 
@@ -22,7 +34,6 @@ const fetchNameFromUrl = (): string => {
 };
 
 let decodedName: string = fetchNameFromUrl();
-
 
 let state: States = "initial"
 
@@ -112,13 +123,6 @@ if (state === "input-to") {
 	updateInputText()
 }
 
-function toTitleCase(str: string): string {
-	return str.replace(
-		/\w\S*/g,
-		text => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
-	);
-}
-
 const updateGreeting = () => {
 	if (greetingObject) {
 		k.destroy(greetingObject)
@@ -128,7 +132,6 @@ const updateGreeting = () => {
 		greeting,
 		k.pos(k.width() / 2 - greeting.width / 2, k.height() / 2 - greeting.height / 2),
 	])
-	window.history.replaceState(null, null, `?name=${btoa(name)}`);
 }
 
 let isShiftPressed = false
@@ -146,9 +149,29 @@ onKeyPressRepeat("backspace", () => {
 	updateInputText()
 });
 
+const showCopyLinkButton = () => {
+	const copyLinkButton = k.add([
+		k.text("Copy link", {
+			font: "monospace",
+			size: 24,
+		}),
+		k.pos(k.width() / 2, k.height() - 100),
+		k.color(0, 0, 0),
+		k.area(),
+		k.scale(1),
+	])
+}
+
 onKeyPress("enter", () => {
-	if (state === "input-to") {
+	if (state === "input-from") {
 		acceptInputTo()
+	}
+	if (state === "input-to") {
+		name = inputText
+		updateGreeting()
+	}
+	if (state === "ready") {
+		showCopyLinkButton()
 	}
 })
 
@@ -157,42 +180,6 @@ onCharInput((ch: string) => {
 	inputText += ch;
 	updateInputText()
 });
-
-k.loadSprite("diya-1", "sprites/diya-1.png", {
-	sliceX: 4,
-	anims: {
-		idle: {
-			from: 0,
-			to: 3,
-			speed: 5,
-			loop: true,
-		},
-	},
-});
-
-const diyaScale = 5;
-
-const diyaDimensions = [(k.width() / 70) * 7, 200]
-
-let diyaLocations = []
-
-for (let x = 0; x < k.width(); x += diyaDimensions[0]) {
-	const y = 10
-	diyaLocations.push([x, y])
-}
-
-for (let x = 0; x < k.width(); x += diyaDimensions[0]) {
-	const y = k.height() - diyaDimensions[1]
-	diyaLocations.push([x, y])
-}
-
-diyaLocations.map(
-	([x, y]) => k.add([
-		k.pos(x, y),
-		k.sprite("diya-1", {anim: "idle"}),
-		k.scale(diyaScale),
-	])
-)
 
 greetingObject = k.add([
 	greeting,
